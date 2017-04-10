@@ -108,6 +108,19 @@ All this is done in a separate goroutine so startup of groupcache and the web
 service is not delayed. The groupcache will initially be operating in 'local'
 mode so the app will work fine while any cluster discovery is being performed.
 
+## Networking
+
+Most examples for groupcache seem to use port 9080 and the clustering package
+uses 9999 so I've continued to use those defaults. Whatever ports you use, it
+is important that the nodes be able to communicate with each other over them!
+
+Exactly how you do this will depend on your setup but some things to consider
+are:
+
+* IPTable configuration
+* Docker configuration (exposed ports)
+* Networking firewall for GCP project
+
 ## Example
 
 See the example project for a working example.
