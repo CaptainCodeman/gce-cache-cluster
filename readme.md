@@ -105,7 +105,7 @@ The end result is that each node in the cluster maintains a complete list of
 peers that is kept uptodate very quickly.
 
 All this is done in a separate goroutine so startup of groupcache and the web
-servie is not delayed. The groupcache will initially be operating in 'local'
+service is not delayed. The groupcache will initially be operating in 'local'
 mode so the app will work fine while any cluster discovery is being performed.
 
 ## Example

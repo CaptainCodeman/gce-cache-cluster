@@ -8,11 +8,16 @@ another cache layer for resized images to avoid re-processing them
 on each request, and each source-load and image-resize would only
 happen on a single node, with other nodes waiting for completion.
 
+The example is simple and just dumps the bytes read from GCS to the
+response, with caching on the way. A more 'complete' system might
+use protobuf to store content type and other file information as a
+part of the cached item.
+
 ## Installing
 
-This example is based on deployment to Docker Optimized GCE. You
-should change refereces to project, zones and buckets to match your
-project.
+This example is based on deployment to Docker Optimized GCE instances.
+You should change any refereces to the project, zones and buckets to
+match your project.
 
 Install and setup:
 
