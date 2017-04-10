@@ -4,9 +4,6 @@ import (
 	"context"
 	"net"
 
-	"io/ioutil"
-	"net/http"
-
 	"cloud.google.com/go/compute/metadata"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
@@ -22,21 +19,10 @@ type (
 func newMatcher(config *MatchConfig) (*matcher, error) {
 	ctx := context.Background()
 
-	var err error
-	var hc *http.Client
+	hc, err := google.DefaultClient(ctx, compute.ComputeReadonlyScope)
 
 	config.Project, err = metadata.ProjectID()
 	config.Zone, err = metadata.Zone()
-
-	b, err := ioutil.ReadFile("service-account.json")
-	if err != nil {
-		return nil, err
-	}
-	jc, err := google.JWTConfigFromJSON(b, compute.ComputeReadonlyScope)
-	if err != nil {
-		return nil, err
-	}
-	hc = jc.Client(ctx)
 
 	service, err := compute.New(hc)
 	if err != nil {
