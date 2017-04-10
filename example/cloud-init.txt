@@ -1,0 +1,69 @@
+#cloud-config
+
+coreos:
+  update:
+    reboot-strategy: off
+  units:
+    - name: iptables-restore.service
+      enable: true
+      command: start
+
+users:
+  - name: testservice
+    groups: docker
+    uid: 2000
+
+write_files:
+  - path: /var/lib/iptables/rules-save
+    permissions: 0644
+    owner: 'root:root'
+    content: |
+      *filter
+      :INPUT DROP [0:0]
+      :FORWARD DROP [0:0]
+      :OUTPUT ACCEPT [0:0]
+      -P INPUT DROP
+      -P FORWARD DROP
+      -P OUTPUT DROP
+      -N DOCKER
+      -N DOCKER-ISOLATION
+      -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+      -A INPUT -i lo -j ACCEPT
+      -A INPUT -p icmp -j ACCEPT
+      -A INPUT -p tcp -m tcp --dport 22 -j ACCEPT
+      -A INPUT -p tcp -m tcp --dport 8080 -j ACCEPT
+      -A INPUT -p tcp -s 10.128.0.0/16 --dport 9080 -j ACCEPT
+      -A INPUT -p tcp -s 10.128.0.0/16 --dport 9999 -j ACCEPT
+      -A INPUT -p udp -s 10.128.0.0/16 --dport 9999 -j ACCEPT
+      -A FORWARD -j DOCKER-ISOLATION
+      -A FORWARD -o docker0 -j DOCKER
+      -A FORWARD -o docker0 -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+      -A FORWARD -i docker0 ! -o docker0 -j ACCEPT
+      -A FORWARD -i docker0 -o docker0 -j ACCEPT
+      -A OUTPUT -m state --state NEW,RELATED,ESTABLISHED -j ACCEPT
+      -A OUTPUT -o lo -j ACCEPT
+      -A DOCKER-ISOLATION -j RETURN
+      COMMIT
+      # the last line of the file needs to be a blank line or a comment
+  - path: /etc/systemd/system/testservice.service
+    permissions: 0644
+    owner: 'root:root'
+    content: |
+      [Unit]
+      Description=test service container
+      Requires=docker.service
+      After=docker.service
+
+      [Service]
+      Environment="HOME=/home/testservice"
+      Restart=always
+      ExecStartPre=/usr/share/google/dockercfg_update.sh
+      ExecStartPre=/usr/bin/docker pull gcr.io/my-project/test:latest
+      ExecStart=/usr/bin/docker run --rm -u 2000 --net=host --name=testservice gcr.io/my-project/test:latest
+      ExecStop=/usr/bin/docker stop -t 2 testservice
+      ExecStopPost=/usr/bin/docker rm testservice
+
+runcmd:
+  - systemctl daemon-reload
+  - systemctl start iptables-restore.service
+  - systemctl start testservice.service
