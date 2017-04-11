@@ -5,6 +5,9 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"time"
+
+	"runtime/debug"
 
 	"github.com/golang/groupcache"
 )
@@ -36,6 +39,14 @@ func New(config *Config) (*cache, error) {
 		config:   &config.Cache,
 	}
 
+	if config.Cache.GCPercent > 0 {
+		debug.SetGCPercent(config.Cache.GCPercent)
+	}
+
+	if config.Cache.PeriodicRelease > 0 {
+		go periodMemoryRelease(config.Cache.PeriodicRelease)
+	}
+
 	// start a separate goroutine because a) this blocks and b) we want
 	// to return as soon as possible so whatever service is running on
 	// this instance can actually start without needing to wait for the
@@ -44,6 +55,14 @@ func New(config *Config) (*cache, error) {
 	go cluster.listenForUpdates(cache.updatePeers)
 
 	return cache, nil
+}
+
+// Periodic release of unused memory back to the OS.
+func periodMemoryRelease(interval int) {
+	ticker := time.Tick(time.Duration(interval) * time.Second)
+	for _ = range ticker {
+		debug.FreeOSMemory()
+	}
 }
 
 func (c *cache) updatePeers(peerAddresses []net.IP) {

@@ -7,7 +7,9 @@ import (
 type (
 	// CacheConfig hold settings for the groupcache service
 	CacheConfig struct {
-		Port int
+		Port            int
+		GCPercent       int `ini:"gc_percent"`
+		PeriodicRelease int
 	}
 
 	// ClusterConfig hold settings for the cluster service
