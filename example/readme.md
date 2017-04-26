@@ -16,7 +16,7 @@ part of the cached item.
 ## Installing
 
 This example is based on deployment to Docker Optimized GCE instances.
-You should change any refereces to the project, zones and buckets to
+You should change any references to the project, zones and buckets to
 match your project.
 
 Install and setup:
@@ -40,7 +40,7 @@ Build docker image and push to gcloud registry:
 
     docker build -t my-project-test .
     docker tag my-project-test gcr.io/my-project/test
-    gcloud docker -- push gcr.io/my-projecte/test
+    gcloud docker -- push gcr.io/my-project/test
 
 Create a GCE instance using this image:
 
