@@ -64,8 +64,8 @@ func (m *matcher) getInstances(ctx context.Context) ([]*compute.Instance, error)
 
 	if err := req.Pages(ctx, func(page *compute.InstanceList) error {
 		for _, instance := range page.Items {
-			logger.Debugf("found %s", instance.Name)
 			if m.matchesConfig(instance) {
+				logger.Debugf("found %s", instance.Name)
 				results = append(results, instance)
 			}
 		}
@@ -103,5 +103,6 @@ func (m *matcher) matchesConfig(instance *compute.Instance) bool {
 			return false
 		}
 	}
+
 	return true
 }
