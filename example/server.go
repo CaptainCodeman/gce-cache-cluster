@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bytes"
+	// "bytes"
+	"fmt"
 	"time"
 
 	"net/http"
@@ -17,14 +18,15 @@ type (
 	}
 )
 
-func NewServer(sources *groupcache.Group) http.Handler {
+func NewServer(sources *groupcache.Group) *http.Server {
 	s := &server{
 		sources: sources,
 	}
 
 	m := http.NewServeMux()
 
-	m.HandleFunc("/", s.imageHandler)
+	m.HandleFunc("/", s.indexHandler)
+	m.HandleFunc("/img/", s.imageHandler)
 
 	// expose stats about the groupcache on this instance
 	m.HandleFunc("/profiler/info.html", profiler.MemStatsHTMLHandler)
@@ -34,18 +36,42 @@ func NewServer(sources *groupcache.Group) http.Handler {
 
 	profiler.RegisterExtraServiceInfoRetriever(s.extraServiceInfo)
 
-	return m
+	srv := http.Server{
+		Addr:         ":8080",
+		Handler:      m,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  time.Second * 620,
+	}
+
+	return &srv
+}
+
+func (s *server) indexHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, "test server")
 }
 
 func (s *server) imageHandler(w http.ResponseWriter, r *http.Request) {
-	key := r.URL.Path[1:]
-	var data []byte
-	if err := s.sources.Get(nil, key, groupcache.AllocatingByteSliceSink(&data)); err != nil {
+	key := r.URL.Path[5:]
+
+	var bv groupcache.ByteView
+	if err := s.sources.Get(nil, key, groupcache.ByteViewSink(&bv)); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	reader := bytes.NewReader(data)
+	reader := bv.Reader()
+
+	/*
+			var data []byte
+			if err := s.sources.Get(nil, key, groupcache.AllocatingByteSliceSink(&data)); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+		  reader := bytes.NewReader(data)
+	*/
+
 	http.ServeContent(w, r, r.URL.Path, time.Now().UTC(), reader)
 }
 

@@ -16,7 +16,7 @@ type (
 	cache struct {
 		*groupcache.HTTPPool
 		me     net.IP
-		peers  []string
+		prev   string
 		config *CacheConfig
 	}
 )
@@ -52,7 +52,7 @@ func New(config *Config) (*cache, error) {
 	// this instance can actually start without needing to wait for the
 	// clustering to happen
 
-	go cluster.listenForUpdates(cache.updatePeers)
+	go cluster.listenForUpdates(self, cache.updatePeers)
 
 	return cache, nil
 }
@@ -60,26 +60,27 @@ func New(config *Config) (*cache, error) {
 // Periodic release of unused memory back to the OS.
 func periodMemoryRelease(interval int) {
 	ticker := time.Tick(time.Duration(interval) * time.Second)
-	for _ = range ticker {
+	for range ticker {
 		debug.FreeOSMemory()
 	}
 }
 
-func (c *cache) updatePeers(peerAddresses []net.IP) {
-	peers := make([]string, len(peerAddresses))
-	for i, addr := range peerAddresses {
+func (c *cache) updatePeers(addresses []net.IP) {
+	peers := make([]string, len(addresses))
+	for i, addr := range addresses {
 		peers[i] = fmt.Sprintf("http://%s:%d", addr, c.config.Port)
 	}
 
 	sort.Slice(peers, func(i, j int) bool { return peers[i] < peers[j] })
 
-	if strings.Join(c.peers, ", ") == strings.Join(peers, ", ") {
+	list := strings.Join(peers, ", ")
+	if list == c.prev {
 		return
 	}
 
-	logger.Debugf("%s set peers %s", c.me, strings.Join(peers, ", "))
+	logger.Debugf("%s set peers %s", c.me, list)
 	c.Set(peers...)
-	c.peers = peers
+	c.prev = list
 }
 
 func (c *cache) ListenOn() string {

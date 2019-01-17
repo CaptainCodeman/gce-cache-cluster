@@ -14,6 +14,7 @@ type (
 	}
 
 	statusListener struct {
+		self   string
 		update updateFunc
 	}
 
@@ -21,7 +22,7 @@ type (
 )
 
 func newCluster(config *Config) (*cluster, error) {
-	me, err := smudge.GetLocalIP()
+	me, err := GetLocalIP()
 	if err != nil {
 		return nil, err
 	}
@@ -31,32 +32,34 @@ func newCluster(config *Config) (*cluster, error) {
 		config: config,
 	}
 
-	logger.Debugf("me:%s cluster running on port %d with heartbeat every %dms", me, config.Cluster.Port, config.Cluster.Heartbeat)
+	logger.Debugf("me:%s cluster running", me)
+	// logger.Debugf("me:%s cluster running on port %d with heartbeat every %dms", me, config.Cluster.Port, config.Cluster.Heartbeat)
+	smudge.SetListenIP(me)
 	smudge.SetListenPort(config.Cluster.Port)
-	smudge.SetHeartbeatMillis(config.Cluster.Heartbeat)
-	smudge.SetLogThreshold(smudge.LogError)
+	// smudge.SetHeartbeatMillis(config.Cluster.Heartbeat)
+	// smudge.SetMinPingTime(500)
+	smudge.SetLogThreshold(smudge.LogWarn)
+	smudge.SetLogger(logger)
 
 	return c, nil
 }
 
-func (c *cluster) listenForUpdates(update updateFunc) {
-	smudge.AddStatusListener(&statusListener{update})
+func (c *cluster) listenForUpdates(self string, update updateFunc) {
+	smudge.AddStatusListener(&statusListener{self, update})
 
-	if err := c.setInitialNodes(); err != nil {
+	if err := c.setInitialNodes(smudge.GetListenPort()); err != nil {
 		logger.Debugf("error setting initial nodes %v", err)
 
 		// TODO: this might mean we _don't_ join the cluster so
 		// we really need to do more here than just "give up".
 		// at the very least we should keep trying to get the
 		// list of nodes we might need to join ...
-
-		return
 	}
 
 	smudge.Begin() // NOTE: this blocks !
 }
 
-func (c *cluster) setInitialNodes() error {
+func (c *cluster) setInitialNodes(port int) error {
 	m, err := newMatcher(&c.config.Match)
 	if err != nil {
 		return err
@@ -67,10 +70,10 @@ func (c *cluster) setInitialNodes() error {
 		return err
 	}
 
-	port := uint16(smudge.GetListenPort())
+	p := uint16(port)
 	for _, ip := range ips {
 		if !ip.Equal(c.me) {
-			node, _ := smudge.CreateNodeByIP(ip, port)
+			node, _ := smudge.CreateNodeByIP(ip, p)
 			smudge.AddNode(node)
 		}
 	}
@@ -79,10 +82,37 @@ func (c *cluster) setInitialNodes() error {
 }
 
 func (s *statusListener) OnChange(node *smudge.Node, status smudge.NodeStatus) {
-	nodes := smudge.HealthyNodes()
-	peers := make([]net.IP, len(nodes))
-	for i, node := range nodes {
-		peers[i] = node.IP()
+	peers := []net.IP{}
+	if status == smudge.StatusAlive {
+		peers = append(peers, node.IP())
 	}
+
+	nodes := smudge.HealthyNodes()
+	for _, n := range nodes {
+		if !n.IP().Equal(node.IP()) {
+			peers = append(peers, n.IP())
+		}
+	}
+
 	s.update(peers)
+}
+
+func GetLocalIP() (net.IP, error) {
+	var ip net.IP
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ip, err
+	}
+
+	for _, a := range addrs {
+		if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				ip = ipnet.IP.To4()
+				break
+			}
+		}
+	}
+
+	return ip, nil
 }

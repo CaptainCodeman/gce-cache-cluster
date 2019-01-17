@@ -38,13 +38,13 @@ Set gcloud project:
 
 Build docker image and push to gcloud registry:
 
-    docker build -t my-project-test .
-    docker tag my-project-test gcr.io/my-project/test
-    gcloud docker -- push gcr.io/my-project/test
+docker build -t gce-cache-cluster .
+docker tag gce-cache-cluster gcr.io/captain-codeman/gce-cache-cluster
+docker push gcr.io/captain-codeman/gce-cache-cluster
 
 Create a GCE instance using this image:
 
-    gcloud compute instances create my-project-test-1 \
+    gcloud compute instances create gce-cache-cluster-1 \
         --image-family cos-stable \
         --image-project cos-cloud \
         --zone us-central1-b \

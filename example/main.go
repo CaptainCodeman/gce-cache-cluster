@@ -17,12 +17,12 @@ func main() {
 	config, _ := cachecluster.LoadConfig("")
 	cache, _ := cachecluster.New(config)
 
-	go http.ListenAndServe(cache.ListenOn(), cache)
-
 	// run the actual server (that uses groupcache)
-	storage, _ := NewGoogleStorage("my-bucket")
+	storage, _ := NewGoogleStorage("captain-codeman.appspot.com")
 	sources := NewSourceCache(storage, 64)
 	server := NewServer(sources)
 
-	http.ListenAndServe(":8080", server)
+	go http.ListenAndServe(cache.ListenOn(), cache)
+
+	server.ListenAndServe()
 }

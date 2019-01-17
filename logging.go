@@ -3,12 +3,14 @@ package cachecluster
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/logging"
+	"github.com/clockworksoul/smudge"
 )
 
-var logger Logging
+var logger *stackdriverLogging
 
 type (
 	// Logging provides logging abstraction
@@ -27,7 +29,7 @@ func init() {
 }
 
 // NewStackdriverLogging creates a new stackdriver logger
-func NewStackdriverLogging() (Logging, error) {
+func NewStackdriverLogging() (*stackdriverLogging, error) {
 	ctx := context.Background()
 
 	project, _ := metadata.ProjectID()
@@ -47,4 +49,25 @@ func NewStackdriverLogging() (Logging, error) {
 func (s *stackdriverLogging) Debugf(format string, args ...interface{}) {
 	text := fmt.Sprintf(format, args...)
 	s.logger.Log(logging.Entry{Severity: logging.Debug, Payload: text})
+}
+
+func (s *stackdriverLogging) Logger() *log.Logger {
+	return s.logger.StandardLogger(logging.Info)
+}
+
+const logThreshhold = smudge.LogInfo
+
+func (s *stackdriverLogging) Log(level smudge.LogLevel, a ...interface{}) (int, error) {
+	if level >= logThreshhold {
+		s.Debugf("%s %v", level.String(), a[0])
+	}
+	return 0, nil
+}
+
+func (s *stackdriverLogging) Logf(level smudge.LogLevel, format string, a ...interface{}) (int, error) {
+	if level >= logThreshhold {
+		s.Debugf(level.String()+" "+format, a...)
+	}
+
+	return 0, nil
 }
